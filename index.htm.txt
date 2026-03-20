@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>房貸 vs. 租房：長期資產淨值模擬器</title>
+    <!-- 使用 Tailwind CSS 進行現代化 UI 設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 使用 Chart.js 進行動態數據可視化 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        .card {
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .input-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+            color: #475569;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus {
+            border-color: #3b82f6;
+            ring: 2px solid #3b82f6;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-gray-900">房貸買房 vs. 租房投資 比較工具</h1>
+            <p class="text-gray-500 mt-2">模擬 40 年間兩者的資產累積路徑</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- 左側參數設定 -->
+            <div class="lg:col-span-4 space-y-6">
+                <div class="card p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        🏠 買房參數
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="input-group">
+                            <label>房屋總價 (萬元)</label>
+                            <input type="number" id="homePrice" value="2000">
+                        </div>
+                        <div class="input-group">
+                            <label>頭期款 (萬元)</label>
+                            <input type="number" id="downPayment" value="400">
+                        </div>
+                        <div class="input-group">
+                            <label>貸款年利率 (%)</label>
+                            <input type="number" id="loanInterest" step="0.01" value="2.15">
+                        </div>
+                        <div class="input-group">
+                            <label>貸款年限 (年)</label>
+                            <input type="number" id="loanYears" value="30">
+                        </div>
+                        <div class="input-group">
+                            <label>房價預期年增率 (%)</label>
+                            <input type="number" id="homeAppreciation" step="0.1" value="2.5">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card p-6">
+                    <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+                        🔑 租房與投資
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="input-group">
+                            <label>初始月租金 (元)</label>
+                            <input type="number" id="monthlyRent" value="35000">
+                        </div>
+                        <div class="input-group">
+                            <label>租金年增率 (%)</label>
+                            <input type="number" id="rentIncrease" step="0.1" value="1.5">
+                        </div>
+                        <div class="input-group">
+                            <label>投資年報酬率 (%)</label>
+                            <input type="number" id="investReturn" step="0.1" value="6.0">
+                        </div>
+                    </div>
+                </div>
+
+                <button onclick="calculate()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-lg">
+                    更新試算結果
+                </button>
+            </div>
+
+            <!-- 右側圖表與數據 -->
+            <div class="lg:col-span-8 space-y-6">
+                <!-- 摘要卡片 -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="card p-4 border-t-4 border-blue-500">
+                        <div class="text-sm text-gray-500">每月房貸支出</div>
+                        <div class="text-2xl font-bold" id="monthlyMortgageDisplay">NT$ 0</div>
+                    </div>
+                    <div class="card p-4 border-t-4 border-indigo-500">
+                        <div class="text-sm text-gray-500">買房 30年資產</div>
+                        <div class="text-2xl font-bold" id="buyerWealthDisplay">0 萬</div>
+                    </div>
+                    <div class="card p-4 border-t-4 border-green-500">
+                        <div class="text-sm text-gray-500">租房 30年資產</div>
+                        <div class="text-2xl font-bold" id="renterWealthDisplay">0 萬</div>
+                    </div>
+                </div>
+
+                <!-- 圖表 -->
+                <div class="card p-6">
+                    <h3 class="text-lg font-bold mb-4">累積資產淨值隨時間變化 (萬元)</h3>
+                    <div class="relative h-[400px]">
+                        <canvas id="comparisonChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 詳細表格 -->
+                <div class="card p-6 overflow-x-auto">
+                    <h3 class="text-lg font-bold mb-4">年度數據對照</h3>
+                    <table class="w-full text-sm text-left">
+                        <thead class="bg-gray-50 text-gray-600 border-b">
+                            <tr>
+                                <th class="px-4 py-2">年份</th>
+                                <th class="px-4 py-2">房屋價值</th>
+                                <th class="px-4 py-2">房貸餘額</th>
+                                <th class="px-4 py-2">買房淨資產</th>
+                                <th class="px-4 py-2">租房投資資產</th>
+                                <th class="px-4 py-2">月租金</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTable">
+                            <!-- 由 JS 生成 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let myChart = null;
+
+        function calculate() {
+            // 讀取輸入值
+            const homePrice = parseFloat(document.getElementById('homePrice').value) * 10000;
+            const downPayment = parseFloat(document.getElementById('downPayment').value) * 10000;
+            const loanRate = parseFloat(document.getElementById('loanInterest').value) / 100;
+            const loanYears = parseInt(document.getElementById('loanYears').value);
+            const homeAppreciation = parseFloat(document.getElementById('homeAppreciation').value) / 100;
+            
+            const startRent = parseFloat(document.getElementById('monthlyRent').value);
+            const rentIncrease = parseFloat(document.getElementById('rentIncrease').value) / 100;
+            const investReturn = parseFloat(document.getElementById('investReturn').value) / 100;
+
+            const loanAmount = homePrice - downPayment;
+            const monthlyRate = loanRate / 12;
+            const totalMonths = loanYears * 12;
+
+            // 計算房貸 (本息平均攤還)
+            let monthlyMortgage = 0;
+            if (loanRate > 0) {
+                monthlyMortgage = (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) / (Math.pow(1 + monthlyRate, totalMonths) - 1);
+            } else {
+                monthlyMortgage = loanAmount / totalMonths;
+            }
+
+            document.getElementById('monthlyMortgageDisplay').innerText = 'NT$ ' + Math.round(monthlyMortgage).toLocaleString();
+
+            // 數據計算容器
+            let years = [];
+            let buyerNetWorth = [];
+            let renterNetWorth = [];
+            let tableRows = '';
+
+            let currentHomeValue = homePrice;
+            let currentLoanBalance = loanAmount;
+            let currentRenterInvest = downPayment; // 租房者將頭期款拿去投資
+            let currentMonthlyRent = startRent;
+
+            for (let year = 0; year <= 40; year++) {
+                if (year > 0) {
+                    // 1. 房屋增值與房貸還款
+                    currentHomeValue *= (1 + homeAppreciation);
+                    
+                    for(let m = 0; m < 12; m++) {
+                        let interest = currentLoanBalance * monthlyRate;
+                        let principal = monthlyMortgage - interest;
+                        if (currentLoanBalance > 0) {
+                            currentLoanBalance -= principal;
+                        }
+                    }
+                    if (currentLoanBalance < 0) currentLoanBalance = 0;
+
+                    // 2. 租房端投資成長
+                    // 投資複利
+                    currentRenterInvest *= (1 + investReturn);
+                    
+                    // 差額投資：如果 (房貸 > 租金)，把省下的錢投資；反之，若 (租金 > 房貸)，需從投資中扣除差額
+                    let annualDiff = (monthlyMortgage - currentMonthlyRent) * 12;
+                    currentRenterInvest += annualDiff;
+
+                    // 租金漲幅
+                    currentMonthlyRent *= (1 + rentIncrease);
+                }
+
+                const buyerNet = (currentHomeValue - currentLoanBalance) / 10000;
+                const renterNet = currentRenterInvest / 10000;
+
+                years.push(year);
+                buyerNetWorth.push(Math.round(buyerNet));
+                renterNetWorth.push(Math.round(renterNet));
+
+                // 更新摘要 (以30年為例)
+                if (year === 30) {
+                    document.getElementById('buyerWealthDisplay').innerText = Math.round(buyerNet).toLocaleString() + ' 萬';
+                    document.getElementById('renterWealthDisplay').innerText = Math.round(renterNet).toLocaleString() + ' 萬';
+                }
+
+                // 生成表格列 (每5年顯示一次或重要節點)
+                if (year % 5 === 0 || year === 40) {
+                    tableRows += `
+                        <tr class="border-b hover:bg-gray-50">
+                            <td class="px-4 py-2 font-medium">第 ${year} 年</td>
+                            <td class="px-4 py-2">${Math.round(currentHomeValue/10000).toLocaleString()} 萬</td>
+                            <td class="px-4 py-2">${Math.round(currentLoanBalance/10000).toLocaleString()} 萬</td>
+                            <td class="px-4 py-2 font-semibold text-blue-600">${Math.round(buyerNet).toLocaleString()} 萬</td>
+                            <td class="px-4 py-2 font-semibold text-green-600">${Math.round(renterNet).toLocaleString()} 萬</td>
+                            <td class="px-4 py-2">${Math.round(currentMonthlyRent).toLocaleString()} 元</td>
+                        </tr>
+                    `;
+                }
+            }
+
+            document.getElementById('dataTable').innerHTML = tableRows;
+            renderChart(years, buyerNetWorth, renterNetWorth);
+        }
+
+        function renderChart(labels, buyerData, renterData) {
+            const ctx = document.getElementById('comparisonChart').getContext('2d');
+            
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels.map(y => '第' + y + '年'),
+                    datasets: [
+                        {
+                            label: '買房資產淨值',
+                            data: buyerData,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        },
+                        {
+                            label: '租房投資資產',
+                            data: renterData,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '淨值 (萬元)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 初始載入
+        window.onload = calculate;
+    </script>
+</body>
+</html>
+
